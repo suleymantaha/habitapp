@@ -1,0 +1,7 @@
+name = "myshop-menu"
+main = "public_menu_worker.js"
+compatibility_date = "2025-12-28"
+
+kv_namespaces = [
+  { binding = "MENUS", id = "781767c8070a44dea13bb5663b9b856f" }
+]
