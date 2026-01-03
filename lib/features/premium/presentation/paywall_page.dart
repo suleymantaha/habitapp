@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:whatsapp_catalog/core/settings/app_settings.dart';
+import 'package:whatsapp_catalog/core/support/app_support.dart';
 
 class PaywallPage extends StatefulWidget {
   const PaywallPage({super.key});
@@ -22,20 +25,25 @@ class _PaywallPageState extends State<PaywallPage> {
   }
 
   Future<void> _setPremium(bool value) async {
-    setState(() => _premiumEnabled = value);
-    await AppSettings.setPremiumEnabled(value);
+    setState(() {
+      _premiumEnabled = value;
+    });
+    await AppSettings.setPremiumEnabled(value: value);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_didLoad) _load();
+    if (!_didLoad) unawaited(_load());
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Premium')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Daha fazla sipariş için Premium', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            'Daha fazla sipariş için Premium',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: 12),
           Card(
             child: SwitchListTile(
@@ -48,16 +56,24 @@ class _PaywallPageState extends State<PaywallPage> {
           const SizedBox(height: 12),
           _BenefitRow(color: scheme.primary, text: 'Watermark kaldır'),
           _BenefitRow(color: scheme.primary, text: 'Sınırsız ürün/katalog'),
-          _BenefitRow(color: scheme.primary, text: 'Tüm şablonlar + sezon temaları'),
-          _BenefitRow(color: scheme.primary, text: 'PDF + Story + QR yüksek kalite'),
+          _BenefitRow(
+            color: scheme.primary,
+            text: 'Tüm şablonlar + sezon temaları',
+          ),
+          _BenefitRow(
+            color: scheme.primary,
+            text: 'PDF + Story + QR yüksek kalite',
+          ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: _premiumEnabled ? null : () => _setPremium(true),
+            onPressed: _premiumEnabled
+                ? null
+                : () => unawaited(_setPremium(true)),
             child: const Text('Premium’a geç'),
           ),
           const SizedBox(height: 8),
           TextButton(
-            onPressed: () {},
+            onPressed: () => unawaited(AppSupport.restorePurchases(context)),
             child: const Text('Satın alımı geri yükle'),
           ),
         ],

@@ -9,7 +9,7 @@ abstract class ViewModel extends ChangeNotifier {
   Object? get error => _error;
   Object? _error;
 
-  void setBusy(bool value) {
+  void setBusy({required bool value}) {
     if (_isBusy == value) return;
     _isBusy = value;
     if (_disposed) return;

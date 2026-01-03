@@ -4,12 +4,11 @@ import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
 
 class InMemoryCatalogRepository implements CatalogRepository {
-  final _controller = StreamController<List<Catalog>>.broadcast();
-  final List<Catalog> _cache = [];
-
   InMemoryCatalogRepository() {
     _emit();
   }
+  final _controller = StreamController<List<Catalog>>.broadcast();
+  final List<Catalog> _cache = [];
 
   @override
   Stream<List<Catalog>> watchCatalogs() => _controller.stream;

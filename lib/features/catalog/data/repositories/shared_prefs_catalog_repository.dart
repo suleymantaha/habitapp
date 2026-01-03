@@ -7,13 +7,12 @@ import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
 
 class SharedPrefsCatalogRepository implements CatalogRepository {
+  SharedPrefsCatalogRepository._(this._prefs, this._cache);
   static const _keyCatalogs = 'catalogs_v1';
 
   final _controller = StreamController<List<Catalog>>.broadcast();
   final List<Catalog> _cache;
   final SharedPreferences _prefs;
-
-  SharedPrefsCatalogRepository._(this._prefs, this._cache);
 
   static Future<SharedPrefsCatalogRepository> create() async {
     final prefs = await SharedPreferences.getInstance();
@@ -75,7 +74,7 @@ class SharedPrefsCatalogRepository implements CatalogRepository {
       }
       result.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return result;
-    } catch (_) {
+    } on Exception {
       return <Catalog>[];
     }
   }

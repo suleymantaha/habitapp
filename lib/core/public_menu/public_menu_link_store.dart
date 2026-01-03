@@ -30,7 +30,7 @@ class PublicMenuLinkStore {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return <String, Object?>{};
       return Map<String, Object?>.from(decoded);
-    } catch (_) {
+    } on Exception {
       return <String, Object?>{};
     }
   }
@@ -42,4 +42,3 @@ class PublicMenuLink {
   final String id;
   final String editToken;
 }
-

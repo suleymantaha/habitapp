@@ -9,8 +9,8 @@ class ImageStorage {
   }) async {
     final docs = await getApplicationDocumentsDirectory();
     final dir = Directory('${docs.path}/images');
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
+    if (!dir.existsSync()) {
+      dir.createSync(recursive: true);
     }
 
     final ext = _fileExtension(sourcePath);
@@ -27,4 +27,3 @@ String _fileExtension(String path) {
   if (ext.length > 6) return '.jpg';
   return ext;
 }
-

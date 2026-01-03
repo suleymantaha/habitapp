@@ -1,11 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:whatsapp_catalog/app/app_scope.dart';
 import 'package:whatsapp_catalog/app/router/app_routes.dart';
 import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
-import 'package:whatsapp_catalog/core/share/referral_share.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/export/export_share_view_model.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/export/pdf_export_page.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/export/story_export_page.dart';
@@ -17,11 +17,9 @@ class ExportShareArgs {
 }
 
 class ExportSharePage extends StatefulWidget {
-  const ExportSharePage({super.key, required this.args});
+  const ExportSharePage({required this.args, super.key});
 
-  final ExportShareArgs args;
-
-  static ExportSharePage fromSettings(RouteSettings settings) {
+  factory ExportSharePage.fromSettings(RouteSettings settings) {
     final args = settings.arguments as ExportShareArgs?;
     if (args == null) {
       throw StateError('ExportShareArgs required');
@@ -29,12 +27,14 @@ class ExportSharePage extends StatefulWidget {
     return ExportSharePage(args: args);
   }
 
+  final ExportShareArgs args;
+
   @override
   State<ExportSharePage> createState() => _ExportSharePageState();
 }
 
 class _ExportSharePageState extends State<ExportSharePage> {
-  ExportShareViewModel? _vm;
+  late final ExportShareViewModel _vm;
   var _didInit = false;
 
   @override
@@ -43,21 +43,23 @@ class _ExportSharePageState extends State<ExportSharePage> {
     if (_didInit) return;
     _didInit = true;
     final repo = AppScope.of(context).catalogRepository;
-    _vm = ExportShareViewModel(repository: repo, catalogId: widget.args.catalogId)
-      ..load();
-    AppAnalytics.log('export_open');
+    _vm = ExportShareViewModel(
+      repository: repo,
+      catalogId: widget.args.catalogId,
+    );
+    unawaited(_vm.load());
+    unawaited(AppAnalytics.log('export_open'));
   }
 
   @override
   void dispose() {
-    _vm?.dispose();
+    _vm.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = _vm;
-    if (vm == null) return const SizedBox.shrink();
     return AnimatedBuilder(
       animation: vm,
       builder: (context, _) {
@@ -67,7 +69,8 @@ class _ExportSharePageState extends State<ExportSharePage> {
             title: const Text('Dışa aktar & paylaş'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pushNamed(AppRoutes.paywall),
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.paywall),
                 child: const Text('Premium'),
               ),
             ],
@@ -79,7 +82,9 @@ class _ExportSharePageState extends State<ExportSharePage> {
                   children: [
                     Text(
                       catalog.name,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Card(
@@ -90,17 +95,23 @@ class _ExportSharePageState extends State<ExportSharePage> {
                           children: [
                             Text(
                               'WhatsApp mesajı',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
                             ),
                             const SizedBox(height: 8),
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainer,
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: Text(vm.shareText, style: Theme.of(context).textTheme.bodyMedium),
+                              child: Text(
+                                vm.shareText,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Row(
@@ -110,16 +121,27 @@ class _ExportSharePageState extends State<ExportSharePage> {
                                     onPressed: vm.isBusy
                                         ? null
                                         : () async {
-                                            final uri = Uri.parse(vm.whatsappUrl);
-                                            await AppAnalytics.log('export_whatsapp_open');
+                                            final uri = Uri.parse(
+                                              vm.whatsappUrl,
+                                            );
+                                            await AppAnalytics.log(
+                                              'export_whatsapp_open',
+                                            );
                                             final ok = await launchUrl(
                                               uri,
-                                              mode: LaunchMode.externalApplication,
+                                              mode: LaunchMode
+                                                  .externalApplication,
                                             );
                                             if (!context.mounted) return;
                                             if (!ok) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('WhatsApp açılamadı.')),
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'WhatsApp açılamadı.',
+                                                  ),
+                                                ),
                                               );
                                             }
                                           },
@@ -133,11 +155,21 @@ class _ExportSharePageState extends State<ExportSharePage> {
                                   onPressed: vm.isBusy
                                       ? null
                                       : () async {
-                                          await Clipboard.setData(ClipboardData(text: vm.shareText));
-                                          await AppAnalytics.log('export_message_copy');
+                                          await Clipboard.setData(
+                                            ClipboardData(text: vm.shareText),
+                                          );
+                                          await AppAnalytics.log(
+                                            'export_message_copy',
+                                          );
                                           if (!context.mounted) return;
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Mesaj kopyalandı.')),
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Mesaj kopyalandı.',
+                                              ),
+                                            ),
                                           );
                                         },
                                   icon: const Icon(Icons.copy_all_outlined),
@@ -152,12 +184,22 @@ class _ExportSharePageState extends State<ExportSharePage> {
                                     onPressed: vm.isBusy
                                         ? null
                                         : () async {
-                                            final text = await buildReferralShareText();
-                                            await AppAnalytics.log('export_referral_share');
-                                            await SharePlus.instance.share(ShareParams(text: text));
+                                            await AppAnalytics.log(
+                                              'export_html_open',
+                                            );
+                                            if (!context.mounted) return;
+                                            await Navigator.of(
+                                              context,
+                                            ).pushNamed(
+                                              AppRoutes.qrPreview,
+                                              arguments: QrPreviewArgs(
+                                                catalogId: catalog.id,
+                                                autoOpenHtml: true,
+                                              ),
+                                            );
                                           },
-                                    icon: const Icon(Icons.send_outlined),
-                                    label: const Text('Arkadaşına gönder'),
+                                    icon: const Icon(Icons.public),
+                                    label: const Text('Menüyü aç (HTML)'),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -173,14 +215,16 @@ class _ExportSharePageState extends State<ExportSharePage> {
                       child: ListTile(
                         leading: const Icon(Icons.qr_code_2),
                         title: const Text('QR'),
-                        subtitle: const Text('Müşteri okutunca WhatsApp mesajı açılsın'),
+                        subtitle: const Text(
+                          'Müşteri okutunca WhatsApp mesajı açılsın',
+                        ),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: vm.isBusy
                             ? null
                             : () => Navigator.of(context).pushNamed(
-                                  AppRoutes.qrPreview,
-                                  arguments: QrPreviewArgs(catalogId: catalog.id),
-                                ),
+                                AppRoutes.qrPreview,
+                                arguments: QrPreviewArgs(catalogId: catalog.id),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -193,9 +237,11 @@ class _ExportSharePageState extends State<ExportSharePage> {
                         onTap: vm.isBusy
                             ? null
                             : () => Navigator.of(context).pushNamed(
-                                  AppRoutes.storyExport,
-                                  arguments: StoryExportArgs(catalogId: catalog.id),
+                                AppRoutes.storyExport,
+                                arguments: StoryExportArgs(
+                                  catalogId: catalog.id,
                                 ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -208,9 +254,9 @@ class _ExportSharePageState extends State<ExportSharePage> {
                         onTap: vm.isBusy
                             ? null
                             : () => Navigator.of(context).pushNamed(
-                                  AppRoutes.pdfExport,
-                                  arguments: PdfExportArgs(catalogId: catalog.id),
-                                ),
+                                AppRoutes.pdfExport,
+                                arguments: PdfExportArgs(catalogId: catalog.id),
+                              ),
                       ),
                     ),
                   ],

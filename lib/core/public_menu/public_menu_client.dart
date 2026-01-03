@@ -105,7 +105,7 @@ class PublicMenuClient {
         return 'data:image/png;base64,${base64Encode(thumbBytes)}';
       }
       return null;
-    } catch (_) {
+    } on Exception {
       return null;
     }
   }

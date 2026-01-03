@@ -7,4 +7,3 @@ class DeleteCatalog {
 
   Future<void> call(String catalogId) => _repository.deleteCatalog(catalogId);
 }
-

@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:whatsapp_catalog/app/app_scope.dart';
 import 'package:whatsapp_catalog/app/router/app_routes.dart';
-import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
 import 'package:whatsapp_catalog/core/formatters/money_formatter.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog_item.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/editor/catalog_editor_view_model.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/export/export_share_page.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/product/product_editor_page.dart';
@@ -14,11 +18,9 @@ class CatalogEditorArgs {
 }
 
 class CatalogEditorPage extends StatefulWidget {
-  const CatalogEditorPage({super.key, required this.args});
+  const CatalogEditorPage({required this.args, super.key});
 
-  final CatalogEditorArgs args;
-
-  static CatalogEditorPage fromSettings(RouteSettings settings) {
+  factory CatalogEditorPage.fromSettings(RouteSettings settings) {
     final args = settings.arguments as CatalogEditorArgs?;
     if (args == null) {
       throw StateError('CatalogEditorArgs required');
@@ -26,14 +28,17 @@ class CatalogEditorPage extends StatefulWidget {
     return CatalogEditorPage(args: args);
   }
 
+  final CatalogEditorArgs args;
+
   @override
   State<CatalogEditorPage> createState() => _CatalogEditorPageState();
 }
 
 class _CatalogEditorPageState extends State<CatalogEditorPage> {
-  CatalogRepository? _repo;
-  CatalogEditorViewModel? _vm;
+  late final CatalogRepository _repo;
+  late final CatalogEditorViewModel _vm;
   var _didInit = false;
+  _ItemSort _sort = _ItemSort.titleAsc;
 
   @override
   void didChangeDependencies() {
@@ -42,21 +47,21 @@ class _CatalogEditorPageState extends State<CatalogEditorPage> {
     _didInit = true;
     _repo = AppScope.of(context).catalogRepository;
     _vm = CatalogEditorViewModel(
-      repository: _repo!,
+      repository: _repo,
       catalogId: widget.args.catalogId,
-    )..load();
+    );
+    unawaited(_vm.load());
   }
 
   @override
   void dispose() {
-    _vm?.dispose();
+    _vm.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = _vm;
-    if (vm == null) return const SizedBox.shrink();
     return AnimatedBuilder(
       animation: vm,
       builder: (context, _) {
@@ -155,6 +160,34 @@ class _CatalogEditorPageState extends State<CatalogEditorPage> {
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(width: 8),
+                        PopupMenuButton<_ItemSort>(
+                          tooltip: 'Sırala',
+                          initialValue: _sort,
+                          onSelected: (v) => setState(() => _sort = v),
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: _ItemSort.titleAsc,
+                              child: Text('A-Z'),
+                            ),
+                            PopupMenuItem(
+                              value: _ItemSort.titleDesc,
+                              child: Text('Z-A'),
+                            ),
+                            PopupMenuItem(
+                              value: _ItemSort.priceAsc,
+                              child: Text('Fiyat (artan)'),
+                            ),
+                            PopupMenuItem(
+                              value: _ItemSort.priceDesc,
+                              child: Text('Fiyat (azalan)'),
+                            ),
+                          ],
+                          child: Chip(
+                            label: Text(_sortLabel(_sort)),
+                            avatar: const Icon(Icons.sort, size: 18),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         IconButton(
                           tooltip: 'Ekle',
                           onPressed: () async {
@@ -217,35 +250,21 @@ class _CatalogEditorPageState extends State<CatalogEditorPage> {
                         ),
                       )
                     else ...[
-                      for (final item in catalog.items) ...[
-                        Card(
-                          child: ListTile(
-                            title: Text(item.title),
-                            subtitle: item.description.trim().isEmpty
-                                ? null
-                                : Text(item.description),
-                            trailing: Text(
-                              formatMoney(
-                                value: item.price,
-                                currencyCode: catalog.currencyCode,
-                              ),
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w800),
+                      ..._buildGroupedItems(
+                        context,
+                        catalog: catalog,
+                        sort: _sort,
+                        onEdit: (itemId) async {
+                          await Navigator.of(context).pushNamed(
+                            AppRoutes.productEditor,
+                            arguments: ProductEditorArgs(
+                              catalogId: catalog.id,
+                              itemId: itemId,
                             ),
-                            onTap: () async {
-                              await Navigator.of(context).pushNamed(
-                                AppRoutes.productEditor,
-                                arguments: ProductEditorArgs(
-                                  catalogId: catalog.id,
-                                  itemId: item.id,
-                                ),
-                              );
-                              await vm.load();
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
+                          );
+                          await vm.load();
+                        },
+                      ),
                     ],
                   ],
                 ),
@@ -253,6 +272,143 @@ class _CatalogEditorPageState extends State<CatalogEditorPage> {
       },
     );
   }
+}
+
+enum _ItemSort { titleAsc, titleDesc, priceAsc, priceDesc }
+
+String _sortLabel(_ItemSort sort) {
+  return switch (sort) {
+    _ItemSort.titleAsc => 'A-Z',
+    _ItemSort.titleDesc => 'Z-A',
+    _ItemSort.priceAsc => '₺↑',
+    _ItemSort.priceDesc => '₺↓',
+  };
+}
+
+List<Widget> _buildGroupedItems(
+  BuildContext context, {
+  required Catalog catalog,
+  required _ItemSort sort,
+  required Future<void> Function(String itemId) onEdit,
+}) {
+  final currencyCode = catalog.currencyCode;
+  final items = catalog.items;
+
+  const uncategorizedKey = '__uncategorized__';
+  const uncategorizedTitle = 'Kategorisiz';
+
+  String keyFor(CatalogItem item) {
+    final raw = item.section?.trim();
+    return (raw == null || raw.isEmpty) ? uncategorizedKey : raw;
+  }
+
+  final grouped = <String, List<CatalogItem>>{};
+  for (final i in items) {
+    final k = keyFor(i);
+    (grouped[k] ??= <CatalogItem>[]).add(i);
+  }
+
+  int compareItems(CatalogItem a, CatalogItem b) {
+    final at = a.title.toLowerCase();
+    final bt = b.title.toLowerCase();
+    final ap = a.price;
+    final bp = b.price;
+
+    return switch (sort) {
+      _ItemSort.titleAsc => at.compareTo(bt),
+      _ItemSort.titleDesc => bt.compareTo(at),
+      _ItemSort.priceAsc => (ap != bp) ? ap.compareTo(bp) : at.compareTo(bt),
+      _ItemSort.priceDesc => (ap != bp) ? bp.compareTo(ap) : at.compareTo(bt),
+    };
+  }
+
+  // Section ordering: A-Z, uncategorized at end.
+  final sectionKeys = grouped.keys.toList()
+    ..sort((a, b) {
+      if (a == uncategorizedKey && b == uncategorizedKey) return 0;
+      if (a == uncategorizedKey) return 1;
+      if (b == uncategorizedKey) return -1;
+      return a.toLowerCase().compareTo(b.toLowerCase());
+    });
+
+  final widgets = <Widget>[];
+
+  for (final sectionKey in sectionKeys) {
+    final sectionItems = (grouped[sectionKey] ?? <CatalogItem>[])
+      ..sort(compareItems);
+    final title = sectionKey == uncategorizedKey
+        ? uncategorizedTitle
+        : sectionKey;
+
+    widgets
+      ..add(
+        Card(
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: sectionKeys.length <= 2,
+              title: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              subtitle: Text('${sectionItems.length} ürün'),
+              children: [
+                for (final item in sectionItems)
+                  ListTile(
+                    title: Text(item.title),
+                    subtitle: _itemSubtitle(context, item),
+                    trailing: Text(
+                      formatMoney(
+                        value: item.price,
+                        currencyCode: currencyCode,
+                      ),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    onTap: () => onEdit(item.id),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      )
+      ..add(const SizedBox(height: 10));
+  }
+
+  return widgets;
+}
+
+Widget? _itemSubtitle(BuildContext context, CatalogItem item) {
+  final desc = item.description.trim();
+  final subsection = item.subsection?.trim() ?? '';
+  if (desc.isEmpty && subsection.isEmpty) return null;
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (subsection.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              subsection,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      if (desc.isNotEmpty) Text(desc),
+    ],
+  );
 }
 
 String _templateLabel(String id) {

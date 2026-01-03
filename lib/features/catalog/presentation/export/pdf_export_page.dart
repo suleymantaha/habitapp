@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -8,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:whatsapp_catalog/app/app_scope.dart';
 import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
+import 'package:whatsapp_catalog/core/formatters/money_formatter.dart';
 import 'package:whatsapp_catalog/core/settings/app_settings.dart';
 import 'package:whatsapp_catalog/core/share/referral_share.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
@@ -19,17 +21,17 @@ class PdfExportArgs {
 }
 
 class PdfExportPage extends StatefulWidget {
-  const PdfExportPage({super.key, required this.args});
+  const PdfExportPage({required this.args, super.key});
 
-  final PdfExportArgs args;
-
-  static PdfExportPage fromSettings(RouteSettings settings) {
+  factory PdfExportPage.fromSettings(RouteSettings settings) {
     final args = settings.arguments as PdfExportArgs?;
     if (args == null) {
       throw StateError('PdfExportArgs required');
     }
     return PdfExportPage(args: args);
   }
+
+  final PdfExportArgs args;
 
   @override
   State<PdfExportPage> createState() => _PdfExportPageState();
@@ -51,16 +53,25 @@ class _PdfExportPageState extends State<PdfExportPage> {
     _vm = ExportShareViewModel(
       repository: repo,
       catalogId: widget.args.catalogId,
-    )..load();
-    AppAnalytics.log('pdf_open');
-    AppSettings.getPremiumEnabled().then((value) {
-      if (!mounted) return;
-      setState(() => _premiumEnabled = value);
-    });
-    AppSettings.getShareAppUrl().then((value) {
-      if (!mounted) return;
-      setState(() => _appUrl = value);
-    });
+    );
+    unawaited(_vm!.load());
+    unawaited(AppAnalytics.log('pdf_open'));
+    unawaited(
+      AppSettings.getPremiumEnabled().then((value) {
+        if (!mounted) return;
+        setState(() {
+          _premiumEnabled = value;
+        });
+      }),
+    );
+    unawaited(
+      AppSettings.getShareAppUrl().then((value) {
+        if (!mounted) return;
+        setState(() {
+          _appUrl = value;
+        });
+      }),
+    );
   }
 
   @override
@@ -75,126 +86,139 @@ class _PdfExportPageState extends State<PdfExportPage> {
     required bool showWatermark,
     required String? watermarkUrl,
   }) async {
-    final doc = pw.Document();
-    doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
-        build: (context) {
-          final items = catalog.items;
-          return [
-            pw.Text(
-              catalog.name,
-              style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              'QR okut → WhatsApp’ta sipariş mesajı hazır gelsin',
-              style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
-            ),
-            pw.SizedBox(height: 16),
-            pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Expanded(
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                    children: [
-                      pw.Container(
-                        padding: const pw.EdgeInsets.all(12),
-                        decoration: pw.BoxDecoration(
-                          borderRadius: pw.BorderRadius.circular(12),
-                          border: pw.Border.all(color: PdfColors.grey300),
-                        ),
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                          children: [
-                            pw.Text(
-                              'Menü',
-                              style: pw.TextStyle(
-                                fontSize: 14,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
+    return (pw.Document()..addPage(
+          pw.MultiPage(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(32),
+            build: (context) {
+              final items = catalog.items;
+              return [
+                pw.Text(
+                  catalog.name,
+                  style: pw.TextStyle(
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'QR okut → WhatsApp’ta sipariş mesajı hazır gelsin',
+                  style: const pw.TextStyle(
+                    fontSize: 12,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.SizedBox(height: 16),
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                        children: [
+                          pw.Container(
+                            padding: const pw.EdgeInsets.all(12),
+                            decoration: pw.BoxDecoration(
+                              borderRadius: pw.BorderRadius.circular(12),
+                              border: pw.Border.all(color: PdfColors.grey300),
                             ),
-                            pw.SizedBox(height: 10),
-                            for (final i in items) ...[
-                              pw.Row(
-                                children: [
-                                  pw.Expanded(
-                                    child: pw.Text(
-                                      i.title,
-                                      style: const pw.TextStyle(fontSize: 12),
-                                    ),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                              children: [
+                                pw.Text(
+                                  'Menü',
+                                  style: pw.TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: pw.FontWeight.bold,
                                   ),
-                                  pw.SizedBox(width: 8),
-                                  pw.Text(
-                                    _formatMoney(i.price, catalog.currencyCode),
-                                    style: pw.TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: pw.FontWeight.bold,
-                                    ),
+                                ),
+                                pw.SizedBox(height: 10),
+                                for (final i in items) ...[
+                                  pw.Row(
+                                    children: [
+                                      pw.Expanded(
+                                        child: pw.Text(
+                                          i.title,
+                                          style: const pw.TextStyle(
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      pw.SizedBox(width: 8),
+                                      pw.Text(
+                                        formatMoney(
+                                          value: i.price,
+                                          currencyCode: catalog.currencyCode,
+                                        ),
+                                        style: pw.TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: pw.FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  pw.SizedBox(height: 6),
                                 ],
-                              ),
-                              pw.SizedBox(height: 6),
-                            ],
-                          ],
-                        ),
+                              ],
+                            ),
+                          ),
+                          pw.SizedBox(height: 10),
+                          pw.Text(
+                            'Sipariş için bu mesajı WhatsApp’ta yanıtlayabilirsin.',
+                            style: const pw.TextStyle(
+                              fontSize: 10,
+                              color: PdfColors.grey700,
+                            ),
+                          ),
+                        ],
                       ),
-                      pw.SizedBox(height: 10),
-                      pw.Text(
-                        'Sipariş için bu mesajı WhatsApp’ta yanıtlayabilirsin.',
-                        style: pw.TextStyle(
-                          fontSize: 10,
-                          color: PdfColors.grey700,
-                        ),
+                    ),
+                    pw.SizedBox(width: 16),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(12),
+                      decoration: pw.BoxDecoration(
+                        borderRadius: pw.BorderRadius.circular(12),
+                        border: pw.Border.all(color: PdfColors.grey300),
                       ),
-                    ],
-                  ),
+                      child: pw.Column(
+                        children: [
+                          pw.BarcodeWidget(
+                            barcode: pw.Barcode.qrCode(),
+                            data: whatsappUrl,
+                            width: 150,
+                            height: 150,
+                          ),
+                          pw.SizedBox(height: 8),
+                          pw.Text(
+                            'WhatsApp',
+                            style: const pw.TextStyle(
+                              fontSize: 10,
+                              color: PdfColors.grey700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                pw.SizedBox(width: 16),
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
-                    borderRadius: pw.BorderRadius.circular(12),
-                    border: pw.Border.all(color: PdfColors.grey300),
-                  ),
-                  child: pw.Column(
-                    children: [
-                      pw.BarcodeWidget(
-                        barcode: pw.Barcode.qrCode(),
-                        data: whatsappUrl,
-                        width: 150,
-                        height: 150,
+                pw.SizedBox(height: 18),
+                if (showWatermark)
+                  pw.Center(
+                    child: pw.Text(
+                      watermarkUrl == null
+                          ? 'whatsapp_catalog ile oluşturuldu'
+                          : 'Kendi kataloğunu oluştur: $watermarkUrl',
+                      style: const pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColors.grey600,
                       ),
-                      pw.SizedBox(height: 8),
-                      pw.Text(
-                        'WhatsApp',
-                        style: pw.TextStyle(
-                          fontSize: 10,
-                          color: PdfColors.grey700,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 18),
-            if (showWatermark)
-              pw.Center(
-                child: pw.Text(
-                  watermarkUrl == null
-                      ? 'whatsapp_catalog ile oluşturuldu'
-                      : 'Kendi kataloğunu oluştur: $watermarkUrl',
-                  style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
-                ),
-              ),
-          ];
-        },
-      ),
-    );
-    return doc.save();
+              ];
+            },
+          ),
+        ))
+        .save();
   }
 
   Future<void> _sharePdf() async {
@@ -203,7 +227,9 @@ class _PdfExportPageState extends State<PdfExportPage> {
     final catalog = vm.catalog;
     if (catalog == null) return;
 
-    setState(() => _sharing = true);
+    setState(() {
+      _sharing = true;
+    });
     try {
       final bytes = await _buildPdfBytes(
         catalog: catalog,
@@ -221,7 +247,11 @@ class _PdfExportPageState extends State<PdfExportPage> {
         ShareParams(text: referral, files: [XFile(file.path)]),
       );
     } finally {
-      if (mounted) setState(() => _sharing = false);
+      if (mounted) {
+        setState(() {
+          _sharing = false;
+        });
+      }
     }
   }
 
@@ -283,10 +313,4 @@ class _PdfExportPageState extends State<PdfExportPage> {
       },
     );
   }
-}
-
-String _formatMoney(double value, String currencyCode) {
-  final isInt = value == value.roundToDouble();
-  final text = isInt ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
-  return '$text $currencyCode';
 }
