@@ -47,6 +47,7 @@ extension _QrPreviewPageStateActions on _QrPreviewPageState {
         _qrData = null;
         _shareText = null;
         _whatsappUrl = null;
+        _publishError = null;
       });
       return;
     }
@@ -61,15 +62,16 @@ extension _QrPreviewPageStateActions on _QrPreviewPageState {
     final url = buildWhatsAppSendUrl(text: text);
     final baseUrl = _publicMenuBaseUrl;
     final wantsWebMenu = baseUrl != null && baseUrl.isNotEmpty;
+
     _safeSetState(() {
       _loading = false;
       _catalog = catalog;
       _shareText = text;
       _whatsappUrl = url;
+      _publishError = null;
       _qrData = wantsWebMenu ? null : url;
     });
     unawaited(_ensurePublished());
-    _maybeAutoOpenHtml();
   }
 
   Future<void> _ensurePublished() async {
@@ -96,7 +98,6 @@ extension _QrPreviewPageStateActions on _QrPreviewPageState {
         final url = client.publicUrlForId(created.id);
         if (!mounted) return;
         _safeSetState(() => _qrData = url);
-        _maybeAutoOpenHtml();
       } else {
         await client.updateMenu(
           id: existing.id,
@@ -106,7 +107,6 @@ extension _QrPreviewPageStateActions on _QrPreviewPageState {
         final url = client.publicUrlForId(existing.id);
         if (!mounted) return;
         _safeSetState(() => _qrData = url);
-        _maybeAutoOpenHtml();
       }
     } on Exception {
       if (!mounted) return;
@@ -121,21 +121,6 @@ extension _QrPreviewPageStateActions on _QrPreviewPageState {
     }
   }
 
-  void _maybeAutoOpenHtml() {
-    if (!widget.args.autoOpenHtml) return;
-    if (_didAutoOpen) return;
-    final catalog = _catalog;
-    if (catalog == null) return;
-    final primaryUrl = _computePrimaryUrl();
-    if (primaryUrl == null) return;
-
-    _didAutoOpen = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(_openHtmlView());
-    });
-  }
-
   String? _computePrimaryUrl() {
     final wantsWebMenu = (_publicMenuBaseUrl ?? '').isNotEmpty;
     final primaryIsMenu = wantsWebMenu && _publishError == null;
@@ -144,125 +129,5 @@ extension _QrPreviewPageStateActions on _QrPreviewPageState {
 
   bool get _isWebMenu {
     return _whatsappUrl != null && _qrData != null && _qrData != _whatsappUrl;
-  }
-
-  String _buildCatalogHtml(Catalog catalog) {
-    const esc = HtmlEscape();
-    final title = esc.convert(catalog.name);
-    final currencyCode = esc.convert(catalog.currencyCode);
-
-    final items = catalog.items
-        .map((i) {
-          final itemTitle = esc.convert(i.title);
-          final price = esc.convert(
-            formatMoney(value: i.price, currencyCode: catalog.currencyCode),
-          );
-          final description = esc.convert(i.description);
-          final section = esc.convert((i.section ?? '').trim());
-          final subsection = esc.convert((i.subsection ?? '').trim());
-
-          final meta = [
-            if (section.isNotEmpty) section,
-            if (subsection.isNotEmpty) subsection,
-          ].join(' / ');
-
-          return '''
-<li class="item">
-  <div class="row">
-    <div class="name">$itemTitle</div>
-    <div class="price">$price</div>
-  </div>
-  ${meta.isNotEmpty ? '<div class="meta">$meta</div>' : ''}
-  ${description.isNotEmpty ? '<div class="desc">$description</div>' : ''}
-</li>
-''';
-        })
-        .join('\n');
-
-    return '''
-<!doctype html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>$title</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; padding: 16px; }
-    h1 { margin: 0 0 8px 0; font-size: 22px; }
-    .sub { opacity: 0.7; margin: 0 0 16px 0; }
-    ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
-    .item { border: 1px solid rgba(127,127,127,.25); border-radius: 12px; padding: 12px; }
-    .row { display: flex; gap: 12px; justify-content: space-between; align-items: baseline; }
-    .name { font-weight: 700; }
-    .price { font-weight: 700; white-space: nowrap; }
-    .meta { opacity: 0.7; font-size: 12px; margin-top: 4px; }
-    .desc { margin-top: 6px; white-space: pre-wrap; }
-  </style>
-</head>
-<body>
-  <h1>$title</h1>
-  <p class="sub">$currencyCode</p>
-  <ul>
-    $items
-  </ul>
-</body>
-</html>
-''';
-  }
-
-  Future<void> _openHtmlView() async {
-    final isWebMenu = _isWebMenu;
-    final menuUrl = _qrData;
-
-    await AppAnalytics.log('qr_html_open');
-
-    if (isWebMenu && menuUrl != null && menuUrl.isNotEmpty) {
-      final ok = await launchUrl(
-        Uri.parse(menuUrl),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!mounted) return;
-      if (!ok) {
-        showAppSnackBar(context, 'Menü açılamadı.');
-      }
-      return;
-    }
-
-    final catalog = _catalog;
-    if (catalog == null) return;
-    final html = _buildCatalogHtml(catalog);
-    final uri = Uri.dataFromString(html, mimeType: 'text/html', encoding: utf8);
-
-    final ok = await launchUrl(uri);
-    if (!mounted) return;
-
-    if (ok) return;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('HTML'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(child: SelectableText(html)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await Clipboard.setData(ClipboardData(text: html));
-              if (!mounted) return;
-              showAppSnackBar(this.context, 'HTML kopyalandı.');
-            },
-            child: const Text('Kopyala'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Kapat'),
-          ),
-        ],
-      ),
-    );
   }
 }

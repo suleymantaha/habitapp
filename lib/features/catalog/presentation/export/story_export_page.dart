@@ -13,8 +13,10 @@ import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
 import 'package:whatsapp_catalog/core/formatters/money_formatter.dart';
 import 'package:whatsapp_catalog/core/settings/app_settings.dart';
 import 'package:whatsapp_catalog/core/share/referral_share.dart';
+import 'package:whatsapp_catalog/core/share/whatsapp_share.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog_item.dart';
-import 'package:whatsapp_catalog/features/catalog/presentation/export/export_share_view_model.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
 
 class StoryExportArgs {
   const StoryExportArgs({required this.catalogId});
@@ -41,7 +43,7 @@ class StoryExportPage extends StatefulWidget {
 class _StoryExportPageState extends State<StoryExportPage> {
   final GlobalKey<State<StatefulWidget>> _repaintKey = GlobalKey();
 
-  ExportShareViewModel? _vm;
+  _CatalogExportVm? _vm;
   var _didInit = false;
   var _sharing = false;
   var _premiumEnabled = false;
@@ -53,10 +55,7 @@ class _StoryExportPageState extends State<StoryExportPage> {
     if (_didInit) return;
     _didInit = true;
     final repo = AppScope.of(context).catalogRepository;
-    _vm = ExportShareViewModel(
-      repository: repo,
-      catalogId: widget.args.catalogId,
-    );
+    _vm = _CatalogExportVm(repository: repo, catalogId: widget.args.catalogId);
     unawaited(_vm!.load());
     unawaited(AppAnalytics.log('story_open'));
     unawaited(
@@ -188,6 +187,41 @@ class _StoryExportPageState extends State<StoryExportPage> {
         );
       },
     );
+  }
+}
+
+class _CatalogExportVm extends ChangeNotifier {
+  _CatalogExportVm({required this.repository, required this.catalogId});
+
+  final CatalogRepository repository;
+  final String catalogId;
+
+  Catalog? catalog;
+  String shareText = '';
+  String whatsappUrl = '';
+  bool isBusy = false;
+
+  Future<void> load() async {
+    isBusy = true;
+    notifyListeners();
+    try {
+      catalog = await repository.getCatalog(catalogId);
+      final c = catalog;
+      if (c != null) {
+        shareText = buildCatalogShareText(
+          catalogName: c.name,
+          currencyCode: c.currencyCode,
+          items: [
+            for (final i in c.items)
+              CatalogShareItem(title: i.title, price: i.price),
+          ],
+        );
+        whatsappUrl = buildWhatsAppSendUrl(text: shareText);
+      }
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
   }
 }
 

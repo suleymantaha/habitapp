@@ -21,7 +21,9 @@ class _QrPreviewBody extends StatelessWidget {
     required this.onCopyLink,
     required this.onShareQrImage,
     required this.onRefreshWebMenu,
-    required this.onOpenHtml,
+    required this.onCopyMessage,
+    required this.onOpenStory,
+    required this.onOpenPdf,
     required this.qrChild,
   });
 
@@ -46,7 +48,9 @@ class _QrPreviewBody extends StatelessWidget {
   final Future<void> Function() onCopyLink;
   final Future<void> Function() onShareQrImage;
   final Future<void> Function() onRefreshWebMenu;
-  final Future<void> Function() onOpenHtml;
+  final Future<void> Function() onCopyMessage;
+  final VoidCallback onOpenStory;
+  final VoidCallback onOpenPdf;
 
   final Widget qrChild;
 
@@ -65,54 +69,47 @@ class _QrPreviewBody extends StatelessWidget {
       children: [
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: qrChild,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: primaryUrl == null ? null : onOpenPrimary,
-                icon: Icon(
-                  primaryIsMenu ? Icons.public : Icons.chat_bubble_outline,
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.ios_share,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
                 ),
-                label: Text(primaryIsMenu ? 'Menüyü aç' : 'WhatsApp’ı aç'),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        catalog!.name,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'WhatsApp mesajı, QR, Story ve PDF çıktısı al.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            if (isWebMenu)
-              IconButton(
-                tooltip: 'WhatsApp’ı aç',
-                onPressed: whatsappUrl == null ? null : onOpenWhatsApp,
-                icon: const Icon(Icons.chat_bubble_outline),
-              ),
-            IconButton(
-              tooltip: 'Linki kopyala',
-              onPressed: qrData == null ? null : onCopyLink,
-              icon: const Icon(Icons.link),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: sharing || qrData == null ? null : onShareQrImage,
-          icon: const Icon(Icons.qr_code_2),
-          label: const Text('QR görselini paylaş'),
-        ),
-        const SizedBox(height: 12),
-        if (wantsWebMenu)
-          OutlinedButton.icon(
-            onPressed: publishing ? null : onRefreshWebMenu,
-            icon: const Icon(Icons.refresh_outlined),
-            label: const Text('Web menüyü güncelle'),
           ),
-        if (isWebMenu) const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: onOpenHtml,
-          icon: const Icon(Icons.code),
-          label: const Text('HTML görünümde aç'),
         ),
         const SizedBox(height: 12),
         if ((shareText ?? '').isNotEmpty)
@@ -123,20 +120,138 @@ class _QrPreviewBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Mesaj önizleme',
+                    'WhatsApp mesajı',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    shareText!,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainer,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      shareText!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: whatsappUrl == null
+                              ? null
+                              : onOpenWhatsApp,
+                          icon: const Icon(Icons.chat_bubble_outline),
+                          label: const Text('WhatsApp’ı aç'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton.tonalIcon(
+                        onPressed: onCopyMessage,
+                        icon: const Icon(Icons.copy_all_outlined),
+                        label: const Text('Kopyala'),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                qrChild,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: primaryUrl == null ? null : onOpenPrimary,
+                        icon: Icon(
+                          primaryIsMenu
+                              ? Icons.public
+                              : Icons.chat_bubble_outline,
+                        ),
+                        label: Text(
+                          primaryIsMenu ? 'Menüyü aç' : 'WhatsApp’ı aç',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton(
+                      tooltip: 'Linki kopyala',
+                      onPressed: qrData == null ? null : onCopyLink,
+                      icon: const Icon(Icons.link),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: sharing || qrData == null ? null : onShareQrImage,
+                  icon: const Icon(Icons.qr_code_2),
+                  label: const Text('QR görselini paylaş'),
+                ),
+                if (wantsWebMenu) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: publishing ? null : onRefreshWebMenu,
+                    icon: const Icon(Icons.refresh_outlined),
+                    label: const Text('Web menüyü güncelle'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Çıktılar',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.qr_code_2),
+                title: const Text('QR'),
+                subtitle: Text(
+                  isWebMenu
+                      ? 'Müşteri okutunca menü tarayıcıda açılsın'
+                      : 'Müşteri okutunca WhatsApp mesajı açılsın',
+                ),
+                trailing: const Icon(Icons.check),
+              ),
+              const Divider(height: 0),
+              ListTile(
+                leading: const Icon(Icons.photo),
+                title: const Text('Instagram Story'),
+                subtitle: const Text('Story görseli oluştur ve paylaş'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onOpenStory,
+              ),
+              const Divider(height: 0),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf),
+                title: const Text('A4 PDF'),
+                subtitle: const Text('PDF menü oluştur ve paylaş'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onOpenPdf,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

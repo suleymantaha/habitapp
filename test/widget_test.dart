@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whatsapp_catalog/app/app.dart';
@@ -9,6 +10,7 @@ void main() {
     await tester.pumpWidget(
       AppScope(
         catalogRepository: InMemoryCatalogRepository(),
+        themeMode: ValueNotifier(ThemeMode.system),
         child: const App(),
       ),
     );

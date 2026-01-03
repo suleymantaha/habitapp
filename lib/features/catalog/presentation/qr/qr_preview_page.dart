@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -11,8 +10,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:whatsapp_catalog/app/app_scope.dart';
+import 'package:whatsapp_catalog/app/router/app_routes.dart';
+
 import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
-import 'package:whatsapp_catalog/core/formatters/money_formatter.dart';
 import 'package:whatsapp_catalog/core/public_menu/public_menu_client.dart';
 import 'package:whatsapp_catalog/core/public_menu/public_menu_link_store.dart';
 import 'package:whatsapp_catalog/core/settings/app_settings.dart';
@@ -21,14 +21,15 @@ import 'package:whatsapp_catalog/core/share/whatsapp_share.dart';
 import 'package:whatsapp_catalog/core/ui/app_snackbar.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
+import 'package:whatsapp_catalog/features/catalog/presentation/export/pdf_export_page.dart';
+import 'package:whatsapp_catalog/features/catalog/presentation/export/story_export_page.dart';
 
 part 'qr_preview_actions.dart';
 part 'qr_preview_widgets.dart';
 
 class QrPreviewArgs {
-  const QrPreviewArgs({required this.catalogId, this.autoOpenHtml = false});
+  const QrPreviewArgs({required this.catalogId});
   final String catalogId;
-  final bool autoOpenHtml;
 }
 
 class QrPreviewPage extends StatefulWidget {
@@ -53,7 +54,6 @@ class _QrPreviewPageState extends State<QrPreviewPage> {
 
   late final CatalogRepository _repo;
   var _didInit = false;
-  var _didAutoOpen = false;
 
   Catalog? _catalog;
   String? _qrData;
@@ -105,30 +105,16 @@ class _QrPreviewPageState extends State<QrPreviewPage> {
     final wantsWebMenu = (_publicMenuBaseUrl ?? '').isNotEmpty;
     final hasQr = _qrData != null;
     final isWebMenu = _isWebMenu;
-    final primaryIsMenu = wantsWebMenu && _publishError == null;
-    final primaryUrl = primaryIsMenu ? _qrData : _whatsappUrl;
+    final primaryUrl = _computePrimaryUrl();
+    final primaryIsMenu = primaryUrl != null && primaryUrl != _whatsappUrl;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('QR'),
+        title: const Text('Dışa aktar & paylaş'),
         actions: [
-          PopupMenuButton<String>(
-            tooltip: 'Menü',
-            onSelected: (value) async {
-              if (value == 'html') {
-                await _openHtmlView();
-              } else if (value == 'referral') {
-                final text = await buildReferralShareText();
-                await AppAnalytics.log('qr_referral_share');
-                await SharePlus.instance.share(ShareParams(text: text));
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'html', child: Text('HTML görünümde aç')),
-              PopupMenuItem(
-                value: 'referral',
-                child: Text('Uygulamayı paylaş'),
-              ),
-            ],
+          IconButton(
+            tooltip: 'Premium',
+            onPressed: () => Navigator.of(context).pushNamed(AppRoutes.paywall),
+            icon: const Icon(Icons.workspace_premium_outlined),
           ),
         ],
       ),
@@ -192,7 +178,30 @@ class _QrPreviewPageState extends State<QrPreviewPage> {
           if (!context.mounted) return;
           showAppSnackBar(context, 'Web menü güncellendi.');
         },
-        onOpenHtml: _openHtmlView,
+        onCopyMessage: () async {
+          final text = _shareText;
+          if (text == null || text.isEmpty) return;
+          await Clipboard.setData(ClipboardData(text: text));
+          await AppAnalytics.log('export_message_copy');
+          if (!context.mounted) return;
+          showAppSnackBar(context, 'Mesaj kopyalandı.');
+        },
+        onOpenStory: () async {
+          final catalog = _catalog;
+          if (catalog == null) return;
+          await Navigator.of(context).pushNamed(
+            AppRoutes.storyExport,
+            arguments: StoryExportArgs(catalogId: catalog.id),
+          );
+        },
+        onOpenPdf: () async {
+          final catalog = _catalog;
+          if (catalog == null) return;
+          await Navigator.of(context).pushNamed(
+            AppRoutes.pdfExport,
+            arguments: PdfExportArgs(catalogId: catalog.id),
+          );
+        },
         qrChild: RepaintBoundary(
           key: _qrRepaintKey,
           child: _QrCard(
@@ -212,7 +221,9 @@ class _QrPreviewPageState extends State<QrPreviewPage> {
                     data: _qrData!,
                     size: 240,
                     backgroundColor: Colors.white,
-                    errorCorrectionLevel: QrErrorCorrectLevel.M,
+                    errorCorrectionLevel: _qrData!.startsWith('data:')
+                        ? QrErrorCorrectLevel.L
+                        : QrErrorCorrectLevel.M,
                   )
                 else
                   Container(

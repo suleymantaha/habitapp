@@ -115,10 +115,58 @@ class _HomePageState extends State<HomePage> {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       sliver: SliverList.separated(
-        itemCount: vm.catalogs.length,
+        itemCount: vm.catalogs.length + 1,
         separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          final catalog = vm.catalogs[index];
+          if (index == 0) {
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Katalogların',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Düzenlemek için bir kataloğa dokun. Hazır olunca Paylaş ile WhatsApp mesajı/QR/PDF alırsın.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: vm.isBusy
+                                ? null
+                                : () => _openCreateCatalog(context, vm),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Yeni katalog'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        OutlinedButton.icon(
+                          onPressed: () => _openHowItWorks(context),
+                          icon: const Icon(Icons.help_outline),
+                          label: const Text('Nasıl?'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          final catalog = vm.catalogs[index - 1];
           return _CatalogCard(
             name: catalog.name,
             subtitle: '${catalog.items.length} ürün/hizmet',
@@ -159,23 +207,20 @@ class _HomePageState extends State<HomePage> {
       showAppSnackBar(context, '"${catalog.name}" silinemedi.');
       return;
     }
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('"${catalog.name}" silindi.'),
-          action: SnackBarAction(
-            label: 'Geri al',
-            onPressed: () async {
-              final restored = await vm.restoreCatalog(catalog);
-              if (!context.mounted) return;
-              if (!restored) {
-                showAppSnackBar(context, '"${catalog.name}" geri alınamadı.');
-              }
-            },
-          ),
-        ),
-      );
+    showAppSnackBar(
+      context,
+      '"${catalog.name}" silindi.',
+      action: SnackBarAction(
+        label: 'Geri al',
+        onPressed: () async {
+          final restored = await vm.restoreCatalog(catalog);
+          if (!context.mounted) return;
+          if (!restored) {
+            showAppSnackBar(context, '"${catalog.name}" geri alınamadı.');
+          }
+        },
+      ),
+    );
   }
 }
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:whatsapp_catalog/app/router/app_routes.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/editor/catalog_editor_page.dart';
-import 'package:whatsapp_catalog/features/catalog/presentation/export/export_share_page.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/export/pdf_export_page.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/export/story_export_page.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/home/home_page.dart';
@@ -10,6 +9,7 @@ import 'package:whatsapp_catalog/features/catalog/presentation/qr/qr_preview_pag
 import 'package:whatsapp_catalog/features/catalog/presentation/template/template_picker_page.dart';
 import 'package:whatsapp_catalog/features/premium/presentation/paywall_page.dart';
 import 'package:whatsapp_catalog/features/settings/presentation/settings_page.dart';
+import 'package:whatsapp_catalog/features/splash/presentation/splash_page.dart';
 
 class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -17,11 +17,11 @@ class AppRouter {
       settings: settings,
       builder: (context) {
         return switch (settings.name) {
+          AppRoutes.splash => const SplashPage(),
           AppRoutes.home => const HomePage(),
           AppRoutes.catalogEditor => CatalogEditorPage.fromSettings(settings),
           AppRoutes.productEditor => ProductEditorPage.fromSettings(settings),
           AppRoutes.templatePicker => TemplatePickerPage.fromSettings(settings),
-          AppRoutes.exportShare => ExportSharePage.fromSettings(settings),
           AppRoutes.qrPreview => QrPreviewPage.fromSettings(settings),
           AppRoutes.storyExport => StoryExportPage.fromSettings(settings),
           AppRoutes.pdfExport => PdfExportPage.fromSettings(settings),

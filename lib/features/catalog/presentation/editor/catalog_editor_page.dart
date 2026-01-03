@@ -8,8 +8,8 @@ import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog_item.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/editor/catalog_editor_view_model.dart';
-import 'package:whatsapp_catalog/features/catalog/presentation/export/export_share_page.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/product/product_editor_page.dart';
+import 'package:whatsapp_catalog/features/catalog/presentation/qr/qr_preview_page.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/template/template_picker_page.dart';
 
 class CatalogEditorArgs {
@@ -131,8 +131,8 @@ class _CatalogEditorPageState extends State<CatalogEditorPage> {
                                 onPressed: catalog.items.isEmpty
                                     ? null
                                     : () => Navigator.of(context).pushNamed(
-                                        AppRoutes.exportShare,
-                                        arguments: ExportShareArgs(
+                                        AppRoutes.qrPreview,
+                                        arguments: QrPreviewArgs(
                                           catalogId: catalog.id,
                                         ),
                                       ),

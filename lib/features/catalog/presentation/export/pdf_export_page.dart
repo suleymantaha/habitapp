@@ -12,8 +12,9 @@ import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
 import 'package:whatsapp_catalog/core/formatters/money_formatter.dart';
 import 'package:whatsapp_catalog/core/settings/app_settings.dart';
 import 'package:whatsapp_catalog/core/share/referral_share.dart';
+import 'package:whatsapp_catalog/core/share/whatsapp_share.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
-import 'package:whatsapp_catalog/features/catalog/presentation/export/export_share_view_model.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
 
 class PdfExportArgs {
   const PdfExportArgs({required this.catalogId});
@@ -38,7 +39,7 @@ class PdfExportPage extends StatefulWidget {
 }
 
 class _PdfExportPageState extends State<PdfExportPage> {
-  ExportShareViewModel? _vm;
+  _CatalogExportVm? _vm;
   var _didInit = false;
   var _sharing = false;
   var _premiumEnabled = false;
@@ -50,10 +51,7 @@ class _PdfExportPageState extends State<PdfExportPage> {
     if (_didInit) return;
     _didInit = true;
     final repo = AppScope.of(context).catalogRepository;
-    _vm = ExportShareViewModel(
-      repository: repo,
-      catalogId: widget.args.catalogId,
-    );
+    _vm = _CatalogExportVm(repository: repo, catalogId: widget.args.catalogId);
     unawaited(_vm!.load());
     unawaited(AppAnalytics.log('pdf_open'));
     unawaited(
@@ -267,14 +265,12 @@ class _PdfExportPageState extends State<PdfExportPage> {
           appBar: AppBar(
             title: const Text('A4 PDF'),
             actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilledButton(
-                  onPressed: (_sharing || vm.isBusy || catalog == null)
-                      ? null
-                      : _sharePdf,
-                  child: const Text('Paylaş'),
-                ),
+              IconButton(
+                tooltip: 'Paylaş',
+                onPressed: (_sharing || vm.isBusy || catalog == null)
+                    ? null
+                    : _sharePdf,
+                icon: const Icon(Icons.ios_share),
               ),
             ],
           ),
@@ -283,26 +279,81 @@ class _PdfExportPageState extends State<PdfExportPage> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   children: [
-                    Text(
-                      'PDF dosyası oluşturulup paylaşılır. WhatsApp, e-posta veya yazdırma için kullanabilirsin.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(14),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Icon(Icons.picture_as_pdf),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                '${catalog.name} (A4)',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w900),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.picture_as_pdf,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${catalog.name} (A4)',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'WhatsApp, e-posta veya yazdırma için paylaş.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: (_sharing || vm.isBusy)
+                                  ? null
+                                  : _sharePdf,
+                              icon: _sharing
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : const Icon(Icons.ios_share),
+                              label: Text(
+                                _sharing ? 'Hazırlanıyor…' : 'Paylaş',
                               ),
                             ),
-                            const Icon(Icons.chevron_right),
                           ],
                         ),
                       ),
@@ -312,5 +363,40 @@ class _PdfExportPageState extends State<PdfExportPage> {
         );
       },
     );
+  }
+}
+
+class _CatalogExportVm extends ChangeNotifier {
+  _CatalogExportVm({required this.repository, required this.catalogId});
+
+  final CatalogRepository repository;
+  final String catalogId;
+
+  Catalog? catalog;
+  String shareText = '';
+  String whatsappUrl = '';
+  bool isBusy = false;
+
+  Future<void> load() async {
+    isBusy = true;
+    notifyListeners();
+    try {
+      catalog = await repository.getCatalog(catalogId);
+      final c = catalog;
+      if (c != null) {
+        shareText = buildCatalogShareText(
+          catalogName: c.name,
+          currencyCode: c.currencyCode,
+          items: [
+            for (final i in c.items)
+              CatalogShareItem(title: i.title, price: i.price),
+          ],
+        );
+        whatsappUrl = buildWhatsAppSendUrl(text: shareText);
+      }
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
   }
 }
