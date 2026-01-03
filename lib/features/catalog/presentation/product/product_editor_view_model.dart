@@ -1,28 +1,29 @@
-import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
-import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog_item.dart';
-import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
-import 'package:whatsapp_catalog/features/catalog/presentation/shared/view_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
 import 'package:whatsapp_catalog/core/public_menu/public_menu_client.dart';
 import 'package:whatsapp_catalog/core/public_menu/public_menu_link_store.dart';
 import 'package:whatsapp_catalog/core/settings/app_settings.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog_item.dart';
+import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_repository.dart';
+import 'package:whatsapp_catalog/features/catalog/presentation/shared/view_model.dart';
 
 class ProductEditorViewModel extends ViewModel {
   ProductEditorViewModel({
     required CatalogRepository repository,
     required String catalogId,
     required String? itemId,
-  })  : _repository = repository,
-        _catalogId = catalogId,
-        _itemId = itemId;
+  }) : _repository = repository,
+       _catalogId = catalogId,
+       _itemId = itemId;
 
   final CatalogRepository _repository;
   final String _catalogId;
   final String? _itemId;
 
   static String _lastSectionKey(String catalogId) => 'last_section:$catalogId';
-  static String _lastSubsectionKey(String catalogId) => 'last_subsection:$catalogId';
+  static String _lastSubsectionKey(String catalogId) =>
+      'last_subsection:$catalogId';
 
   Catalog? get catalog => _catalog;
   Catalog? _catalog;
@@ -44,7 +45,7 @@ class ProductEditorViewModel extends ViewModel {
   String? _validationMessage;
 
   Future<void> load() async {
-    setBusy(true);
+    setBusy(value: true);
     try {
       _catalog = await _repository.getCatalog(_catalogId);
       _item = _catalog?.items.where((i) => i.id == _itemId).firstOrNull;
@@ -52,14 +53,18 @@ class ProductEditorViewModel extends ViewModel {
       if (_item == null) {
         final prefs = await SharedPreferences.getInstance();
         _lastSection = prefs.getString(_lastSectionKey(_catalogId))?.trim();
-        _lastSubsection = prefs.getString(_lastSubsectionKey(_catalogId))?.trim();
+        _lastSubsection = prefs
+            .getString(_lastSubsectionKey(_catalogId))
+            ?.trim();
         if (_lastSection != null && _lastSection!.isEmpty) _lastSection = null;
-        if (_lastSubsection != null && _lastSubsection!.isEmpty) _lastSubsection = null;
+        if (_lastSubsection != null && _lastSubsection!.isEmpty) {
+          _lastSubsection = null;
+        }
       }
-    } catch (e) {
+    } on Exception catch (e) {
       setError(e);
     } finally {
-      setBusy(false);
+      setBusy(value: false);
     }
   }
 
@@ -93,14 +98,16 @@ class ProductEditorViewModel extends ViewModel {
     _validationMessage = null;
     notifyListeners();
 
-    setBusy(true);
+    setBusy(value: true);
     try {
       final now = DateTime.now();
       final isCreate = _item == null;
       final cleanedSection = section.trim();
       final cleanedSubsection = subsection.trim();
       final finalSection = cleanedSection.isEmpty ? null : cleanedSection;
-      final finalSubsection = cleanedSubsection.isEmpty ? null : cleanedSubsection;
+      final finalSubsection = cleanedSubsection.isEmpty
+          ? null
+          : cleanedSubsection;
       final nextItem = (_item == null)
           ? CatalogItem(
               id: now.microsecondsSinceEpoch.toString(),
@@ -142,11 +149,11 @@ class ProductEditorViewModel extends ViewModel {
       }
       await AppAnalytics.log(isCreate ? 'item_create' : 'item_update');
       return true;
-    } catch (e) {
+    } on Exception catch (e) {
       setError(e);
       return false;
     } finally {
-      setBusy(false);
+      setBusy(value: false);
     }
   }
 
@@ -155,22 +162,24 @@ class ProductEditorViewModel extends ViewModel {
     final current = _item;
     if (catalog == null || current == null) return false;
 
-    setBusy(true);
+    setBusy(value: true);
     try {
       final now = DateTime.now();
       final nextCatalog = catalog.copyWith(
-        items: catalog.items.where((i) => i.id != current.id).toList(growable: false),
+        items: catalog.items
+            .where((i) => i.id != current.id)
+            .toList(growable: false),
         updatedAt: now,
       );
       await _repository.upsertCatalog(nextCatalog);
       await _maybePublishPublicMenu(nextCatalog);
       await AppAnalytics.log('item_delete');
       return true;
-    } catch (e) {
+    } on Exception catch (e) {
       setError(e);
       return false;
     } finally {
-      setBusy(false);
+      setBusy(value: false);
     }
   }
 
@@ -185,7 +194,7 @@ class ProductEditorViewModel extends ViewModel {
         editToken: link.editToken,
         catalog: catalog,
       );
-    } catch (_) {
+    } on Exception {
       return;
     }
   }

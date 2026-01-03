@@ -5,7 +5,6 @@ class AppTheme {
     const seed = Color(0xFF2E7D32);
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,
-      brightness: Brightness.light,
       surface: const Color(0xFFFFFFFF),
       surfaceContainer: const Color(0xFFF6F7F9),
     );
@@ -14,10 +13,18 @@ class AppTheme {
       colorScheme: scheme,
     );
     final textTheme = base.textTheme.copyWith(
-      headlineSmall: base.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
-      titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-      titleMedium: base.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-      titleSmall: base.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+      headlineSmall: base.textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w900,
+      ),
+      titleLarge: base.textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w800,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+      ),
+      titleSmall: base.textTheme.titleSmall?.copyWith(
+        fontWeight: FontWeight.w800,
+      ),
     );
     return base.copyWith(
       scaffoldBackgroundColor: scheme.surfaceContainer,

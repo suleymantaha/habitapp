@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:whatsapp_catalog/core/files/image_storage.dart';
 import 'package:whatsapp_catalog/app/app_scope.dart';
+import 'package:whatsapp_catalog/core/files/image_storage.dart';
+import 'package:whatsapp_catalog/core/ui/app_dialogs.dart';
+import 'package:whatsapp_catalog/core/ui/app_snackbar.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog_item.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/product/product_editor_view_model.dart';
 
@@ -16,11 +19,9 @@ class ProductEditorArgs {
 }
 
 class ProductEditorPage extends StatefulWidget {
-  const ProductEditorPage({super.key, required this.args});
+  const ProductEditorPage({required this.args, super.key});
 
-  final ProductEditorArgs args;
-
-  static ProductEditorPage fromSettings(RouteSettings settings) {
+  factory ProductEditorPage.fromSettings(RouteSettings settings) {
     final args = settings.arguments as ProductEditorArgs?;
     if (args == null) {
       throw StateError('ProductEditorArgs required');
@@ -28,12 +29,14 @@ class ProductEditorPage extends StatefulWidget {
     return ProductEditorPage(args: args);
   }
 
+  final ProductEditorArgs args;
+
   @override
   State<ProductEditorPage> createState() => _ProductEditorPageState();
 }
 
 class _ProductEditorPageState extends State<ProductEditorPage> {
-  ProductEditorViewModel? _vm;
+  late final ProductEditorViewModel _vm;
   var _didInit = false;
   var _didInitForm = false;
 
@@ -53,7 +56,8 @@ class _ProductEditorPageState extends State<ProductEditorPage> {
       repository: repo,
       catalogId: widget.args.catalogId,
       itemId: widget.args.itemId,
-    )..load();
+    );
+    unawaited(_vm.load());
   }
 
   @override
@@ -63,14 +67,13 @@ class _ProductEditorPageState extends State<ProductEditorPage> {
     _titleController.dispose();
     _priceController.dispose();
     _descController.dispose();
-    _vm?.dispose();
+    _vm.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = _vm;
-    if (vm == null) return const SizedBox.shrink();
     return AnimatedBuilder(
       animation: vm,
       builder: (context, _) {
@@ -111,9 +114,10 @@ class _ProductEditorPageState extends State<ProductEditorPage> {
                   onPressed: vm.isBusy
                       ? null
                       : () async {
-                          final confirmed = await _confirmDelete(
+                          final confirmed = await confirmDeleteDialog(
                             context,
-                            item.title,
+                            title: 'Öğeyi sil?',
+                            message: '"${item.title}" silinecek.',
                           );
                           if (!confirmed) return;
                           final ok = await vm.delete();
@@ -652,16 +656,10 @@ Future<void> _pickPhoto({
     final message = e.code == 'channel-error'
         ? 'Fotoğraf seçici başlatılamadı. Uygulamayı tamamen kapatıp tekrar aç.'
         : 'Fotoğraf seçici açılamadı.';
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  } catch (_) {
+    showAppSnackBar(context, message);
+  } on Exception {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(content: Text('Fotoğraf seçilirken hata oluştu.')),
-      );
+    showAppSnackBar(context, 'Fotoğraf seçilirken hata oluştu.');
   }
 }
 
@@ -686,27 +684,4 @@ class _PhotoPreview extends StatelessWidget {
     final bytes = base64Decode(encoded);
     return Image.memory(bytes, fit: BoxFit.cover);
   }
-}
-
-Future<bool> _confirmDelete(BuildContext context, String title) async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('Öğeyi sil?'),
-        content: Text('"$title" silinecek.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sil'),
-          ),
-        ],
-      );
-    },
-  );
-  return result ?? false;
 }

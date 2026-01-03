@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:whatsapp_catalog/app/app_scope.dart';
 import 'package:whatsapp_catalog/app/router/app_routes.dart';
+import 'package:whatsapp_catalog/core/ui/app_dialogs.dart';
+import 'package:whatsapp_catalog/core/ui/app_snackbar.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/usecases/create_catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/usecases/delete_catalog.dart';
@@ -100,7 +102,7 @@ class _HomePageState extends State<HomePage> {
     final id = await vm.createDemoCatalog();
     if (!context.mounted) return;
     if (id == null) {
-      _showSnackBar(context, 'Örnek katalog oluşturulamadı.');
+      showAppSnackBar(context, 'Örnek katalog oluşturulamadı.');
       return;
     }
     await Navigator.of(context).pushNamed(
@@ -145,12 +147,16 @@ class _HomePageState extends State<HomePage> {
     HomeViewModel vm,
     Catalog catalog,
   ) async {
-    final confirmed = await _confirmDelete(context, catalog.name);
+    final confirmed = await confirmDeleteDialog(
+      context,
+      title: 'Kataloğu sil?',
+      message: '"${catalog.name}" silinecek. Bu işlem geri alınamaz.',
+    );
     if (!confirmed) return;
     final ok = await vm.deleteCatalog(catalog.id);
     if (!context.mounted) return;
     if (!ok) {
-      _showSnackBar(context, '"${catalog.name}" silinemedi.');
+      showAppSnackBar(context, '"${catalog.name}" silinemedi.');
       return;
     }
     ScaffoldMessenger.of(context)
@@ -164,7 +170,7 @@ class _HomePageState extends State<HomePage> {
               final restored = await vm.restoreCatalog(catalog);
               if (!context.mounted) return;
               if (!restored) {
-                _showSnackBar(context, '"${catalog.name}" geri alınamadı.');
+                showAppSnackBar(context, '"${catalog.name}" geri alınamadı.');
               }
             },
           ),
@@ -189,42 +195,13 @@ Future<void> _openCreateCatalog(BuildContext context, HomeViewModel vm) async {
   );
   if (!context.mounted) return;
   if (id == null) {
-    _showSnackBar(context, 'Katalog oluşturulamadı.');
+    showAppSnackBar(context, 'Katalog oluşturulamadı.');
     return;
   }
   await Navigator.of(context).pushNamed(
     AppRoutes.catalogEditor,
     arguments: CatalogEditorArgs(catalogId: id),
   );
-}
-
-void _showSnackBar(BuildContext context, String message) {
-  ScaffoldMessenger.of(context)
-    ..clearSnackBars()
-    ..showSnackBar(SnackBar(content: Text(message)));
-}
-
-Future<bool> _confirmDelete(BuildContext context, String name) async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('Kataloğu sil?'),
-        content: Text('"$name" silinecek. Bu işlem geri alınamaz.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sil'),
-          ),
-        ],
-      );
-    },
-  );
-  return result ?? false;
 }
 
 class _OnboardingEmptyState extends StatelessWidget {
@@ -364,7 +341,6 @@ class _StepCard extends StatelessWidget {
 Future<void> _openHowItWorks(BuildContext context) async {
   await showModalBottomSheet<void>(
     context: context,
-    isScrollControlled: false,
     useSafeArea: true,
     showDragHandle: true,
     builder: (context) {
@@ -559,15 +535,18 @@ class _CreateCatalogSheetState extends State<_CreateCatalogSheet> {
 
   @override
   void dispose() {
-    _nameController.removeListener(_recompute);
-    _nameController.dispose();
+    _nameController
+      ..removeListener(_recompute)
+      ..dispose();
     super.dispose();
   }
 
   void _recompute() {
     final next = _nameController.text.trim().length >= 2;
     if (next == _canCreate) return;
-    setState(() => _canCreate = next);
+    setState(() {
+      _canCreate = next;
+    });
   }
 
   @override

@@ -1,12 +1,12 @@
 import 'dart:async';
 
+import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog_item.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/usecases/create_catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/usecases/delete_catalog.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/usecases/watch_catalogs.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/shared/view_model.dart';
-import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
 
 class HomeViewModel extends ViewModel {
   HomeViewModel({
@@ -35,7 +35,7 @@ class HomeViewModel extends ViewModel {
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    unawaited(_subscription?.cancel() ?? Future<void>.value());
     super.dispose();
   }
 
@@ -44,7 +44,7 @@ class HomeViewModel extends ViewModel {
     required String currencyCode,
     String templateId = 'minimal_green',
   }) async {
-    setBusy(true);
+    setBusy(value: true);
     setError(null);
     try {
       final now = DateTime.now();
@@ -60,46 +60,46 @@ class HomeViewModel extends ViewModel {
       await _createCatalog(catalog);
       await AppAnalytics.log('catalog_create');
       return id;
-    } catch (e) {
+    } on Exception catch (e) {
       setError(e);
       return null;
     } finally {
-      setBusy(false);
+      setBusy(value: false);
     }
   }
 
   Future<bool> deleteCatalog(String catalogId) async {
-    setBusy(true);
+    setBusy(value: true);
     setError(null);
     try {
       await _deleteCatalog(catalogId);
       await AppAnalytics.log('catalog_delete');
       return true;
-    } catch (e) {
+    } on Exception catch (e) {
       setError(e);
       return false;
     } finally {
-      setBusy(false);
+      setBusy(value: false);
     }
   }
 
   Future<bool> restoreCatalog(Catalog catalog) async {
-    setBusy(true);
+    setBusy(value: true);
     setError(null);
     try {
       await _createCatalog(catalog);
       await AppAnalytics.log('catalog_restore');
       return true;
-    } catch (e) {
+    } on Exception catch (e) {
       setError(e);
       return false;
     } finally {
-      setBusy(false);
+      setBusy(value: false);
     }
   }
 
   Future<String?> createDemoCatalog() async {
-    setBusy(true);
+    setBusy(value: true);
     setError(null);
     try {
       final now = DateTime.now();
@@ -143,11 +143,11 @@ class HomeViewModel extends ViewModel {
       await _createCatalog(demo);
       await AppAnalytics.log('catalog_create_demo');
       return id;
-    } catch (e) {
+    } on Exception catch (e) {
       setError(e);
       return null;
     } finally {
-      setBusy(false);
+      setBusy(value: false);
     }
   }
 }

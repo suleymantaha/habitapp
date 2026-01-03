@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:whatsapp_catalog/app/app_scope.dart';
 import 'package:whatsapp_catalog/features/catalog/presentation/template/template_picker_view_model.dart';
@@ -8,11 +10,9 @@ class TemplatePickerArgs {
 }
 
 class TemplatePickerPage extends StatefulWidget {
-  const TemplatePickerPage({super.key, required this.args});
+  const TemplatePickerPage({required this.args, super.key});
 
-  final TemplatePickerArgs args;
-
-  static TemplatePickerPage fromSettings(RouteSettings settings) {
+  factory TemplatePickerPage.fromSettings(RouteSettings settings) {
     final args = settings.arguments as TemplatePickerArgs?;
     if (args == null) {
       throw StateError('TemplatePickerArgs required');
@@ -20,12 +20,14 @@ class TemplatePickerPage extends StatefulWidget {
     return TemplatePickerPage(args: args);
   }
 
+  final TemplatePickerArgs args;
+
   @override
   State<TemplatePickerPage> createState() => _TemplatePickerPageState();
 }
 
 class _TemplatePickerPageState extends State<TemplatePickerPage> {
-  TemplatePickerViewModel? _vm;
+  late final TemplatePickerViewModel _vm;
   var _didInit = false;
 
   @override
@@ -34,20 +36,22 @@ class _TemplatePickerPageState extends State<TemplatePickerPage> {
     if (_didInit) return;
     _didInit = true;
     final repo = AppScope.of(context).catalogRepository;
-    _vm = TemplatePickerViewModel(repository: repo, catalogId: widget.args.catalogId)
-      ..load();
+    _vm = TemplatePickerViewModel(
+      repository: repo,
+      catalogId: widget.args.catalogId,
+    );
+    unawaited(_vm.load());
   }
 
   @override
   void dispose() {
-    _vm?.dispose();
+    _vm.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = _vm;
-    if (vm == null) return const SizedBox.shrink();
     return AnimatedBuilder(
       animation: vm,
       builder: (context, _) {

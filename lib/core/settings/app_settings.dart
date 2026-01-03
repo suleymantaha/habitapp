@@ -4,14 +4,12 @@ class AppSettings {
   static const _keyShareAppUrl = 'share_app_url';
   static const _keyPremiumEnabled = 'premium_enabled';
   static const _keyPublicMenuBaseUrl = 'public_menu_base_url';
-  static const _defaultPublicMenuBaseUrl = 'https://myshop-menu.myshop.workers.dev';
 
   static Future<String?> getShareAppUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString(_keyShareAppUrl)?.trim();
     if (value != null && value.isNotEmpty) return value;
-    final fallback = prefs.getString(_keyPublicMenuBaseUrl)?.trim();
-    return (fallback == null || fallback.isEmpty) ? null : fallback;
+    return null;
   }
 
   static Future<void> setShareAppUrl(String? value) async {
@@ -29,7 +27,7 @@ class AppSettings {
     return prefs.getBool(_keyPremiumEnabled) ?? false;
   }
 
-  static Future<void> setPremiumEnabled(bool value) async {
+  static Future<void> setPremiumEnabled({required bool value}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyPremiumEnabled, value);
   }
@@ -38,7 +36,7 @@ class AppSettings {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyPublicMenuBaseUrl)?.trim();
     final cleaned = _normalizeUrl(raw);
-    if (cleaned == null) return _defaultPublicMenuBaseUrl;
+    if (cleaned == null) return null;
 
     final migrated = _migrateWorkersDevHost(cleaned);
     if (migrated != cleaned) {
@@ -69,7 +67,7 @@ class AppSettings {
     Uri uri;
     try {
       uri = Uri.parse(value);
-    } catch (_) {
+    } on Exception {
       return value;
     }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -9,6 +10,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:whatsapp_catalog/app/app_scope.dart';
 import 'package:whatsapp_catalog/core/analytics/app_analytics.dart';
+import 'package:whatsapp_catalog/core/formatters/money_formatter.dart';
 import 'package:whatsapp_catalog/core/settings/app_settings.dart';
 import 'package:whatsapp_catalog/core/share/referral_share.dart';
 import 'package:whatsapp_catalog/features/catalog/domain/entities/catalog_item.dart';
@@ -20,11 +22,9 @@ class StoryExportArgs {
 }
 
 class StoryExportPage extends StatefulWidget {
-  const StoryExportPage({super.key, required this.args});
+  const StoryExportPage({required this.args, super.key});
 
-  final StoryExportArgs args;
-
-  static StoryExportPage fromSettings(RouteSettings settings) {
+  factory StoryExportPage.fromSettings(RouteSettings settings) {
     final args = settings.arguments as StoryExportArgs?;
     if (args == null) {
       throw StateError('StoryExportArgs required');
@@ -32,12 +32,14 @@ class StoryExportPage extends StatefulWidget {
     return StoryExportPage(args: args);
   }
 
+  final StoryExportArgs args;
+
   @override
   State<StoryExportPage> createState() => _StoryExportPageState();
 }
 
 class _StoryExportPageState extends State<StoryExportPage> {
-  final _repaintKey = GlobalKey();
+  final GlobalKey<State<StatefulWidget>> _repaintKey = GlobalKey();
 
   ExportShareViewModel? _vm;
   var _didInit = false;
@@ -54,16 +56,25 @@ class _StoryExportPageState extends State<StoryExportPage> {
     _vm = ExportShareViewModel(
       repository: repo,
       catalogId: widget.args.catalogId,
-    )..load();
-    AppAnalytics.log('story_open');
-    AppSettings.getPremiumEnabled().then((value) {
-      if (!mounted) return;
-      setState(() => _premiumEnabled = value);
-    });
-    AppSettings.getShareAppUrl().then((value) {
-      if (!mounted) return;
-      setState(() => _appUrl = value);
-    });
+    );
+    unawaited(_vm!.load());
+    unawaited(AppAnalytics.log('story_open'));
+    unawaited(
+      AppSettings.getPremiumEnabled().then((value) {
+        if (!mounted) return;
+        setState(() {
+          _premiumEnabled = value;
+        });
+      }),
+    );
+    unawaited(
+      AppSettings.getShareAppUrl().then((value) {
+        if (!mounted) return;
+        setState(() {
+          _appUrl = value;
+        });
+      }),
+    );
   }
 
   @override
@@ -89,7 +100,9 @@ class _StoryExportPageState extends State<StoryExportPage> {
     final catalog = vm.catalog;
     if (catalog == null) return;
 
-    setState(() => _sharing = true);
+    setState(() {
+      _sharing = true;
+    });
     try {
       final bytes = await _capturePngBytes();
       if (bytes == null) return;
@@ -104,7 +117,11 @@ class _StoryExportPageState extends State<StoryExportPage> {
         ShareParams(text: referral, files: [XFile(file.path)]),
       );
     } finally {
-      if (mounted) setState(() => _sharing = false);
+      if (mounted) {
+        setState(() {
+          _sharing = false;
+        });
+      }
     }
   }
 
@@ -142,7 +159,6 @@ class _StoryExportPageState extends State<StoryExportPage> {
                         aspectRatio: 9 / 16,
                         child: ClipRect(
                           child: FittedBox(
-                            fit: BoxFit.contain,
                             child: RepaintBoundary(
                               key: _repaintKey,
                               child: SizedBox(
@@ -251,7 +267,10 @@ class _StoryCanvas extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            _formatMoney(item.price, currencyCode),
+                            formatMoney(
+                              value: item.price,
+                              currencyCode: currencyCode,
+                            ),
                             style: const TextStyle(
                               color: Color(0xFFAEC6FF),
                               fontSize: 34,
@@ -268,10 +287,10 @@ class _StoryCanvas extends StatelessWidget {
               const Spacer(),
               Row(
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Text(
                       'QR okut → WhatsApp’ta sipariş mesajı hazır gelsin',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 34,
                         fontWeight: FontWeight.w800,
@@ -318,10 +337,4 @@ class _StoryCanvas extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatMoney(double value, String currencyCode) {
-  final isInt = value == value.roundToDouble();
-  final text = isInt ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
-  return '$text $currencyCode';
 }

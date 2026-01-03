@@ -8,4 +8,3 @@ class CreateCatalog {
 
   Future<void> call(Catalog catalog) => _repository.upsertCatalog(catalog);
 }
-

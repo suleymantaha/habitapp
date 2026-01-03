@@ -10,7 +10,7 @@ class AppAnalytics {
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_keyInitialized) == true) return;
+    if (prefs.getBool(_keyInitialized) ?? false) return;
     await prefs.setBool(_keyInitialized, true);
   }
 
@@ -20,7 +20,10 @@ class AppAnalytics {
     counts[event] = (counts[event] ?? 0) + 1;
     await prefs.setString(_keyCounts, jsonEncode(counts));
     await prefs.setString(_keyLastEvent, event);
-    await prefs.setInt(_keyLastEventAtMs, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+      _keyLastEventAtMs,
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   static Future<Map<String, int>> getCounts() async {
@@ -34,11 +37,13 @@ class AppAnalytics {
     final lastEvent = prefs.getString(_keyLastEvent);
     final lastAtMs = prefs.getInt(_keyLastEventAtMs);
 
-    final buffer = StringBuffer();
-    buffer.writeln('Analytics raporu');
-    buffer.writeln('Tarih: ${DateTime.now().toIso8601String()}');
+    final buffer = StringBuffer()
+      ..writeln('Analytics raporu')
+      ..writeln('Tarih: ${DateTime.now().toIso8601String()}');
     if (lastEvent != null && lastAtMs != null) {
-      buffer.writeln('Son event: $lastEvent (${DateTime.fromMillisecondsSinceEpoch(lastAtMs).toIso8601String()})');
+      buffer.writeln(
+        'Son event: $lastEvent (${DateTime.fromMillisecondsSinceEpoch(lastAtMs).toIso8601String()})',
+      );
     }
     buffer.writeln();
 
@@ -69,4 +74,3 @@ class AppAnalytics {
     return result;
   }
 }
-

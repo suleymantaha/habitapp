@@ -3,9 +3,9 @@ import 'package:whatsapp_catalog/features/catalog/domain/repositories/catalog_re
 
 class AppScope extends InheritedWidget {
   const AppScope({
-    super.key,
     required this.catalogRepository,
     required super.child,
+    super.key,
   });
 
   final CatalogRepository catalogRepository;
@@ -23,4 +23,3 @@ class AppScope extends InheritedWidget {
     return catalogRepository != oldWidget.catalogRepository;
   }
 }
-

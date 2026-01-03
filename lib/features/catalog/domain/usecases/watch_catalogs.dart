@@ -8,4 +8,3 @@ class WatchCatalogs {
 
   Stream<List<Catalog>> call() => _repository.watchCatalogs();
 }
-

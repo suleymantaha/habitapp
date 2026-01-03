@@ -6,4 +6,3 @@ abstract interface class CatalogRepository {
   Future<void> deleteCatalog(String catalogId);
   Future<Catalog?> getCatalog(String catalogId);
 }
-

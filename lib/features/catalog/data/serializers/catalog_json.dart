@@ -26,9 +26,12 @@ Catalog catalogFromJson(Map<String, Object?> json) {
     id: (json['id'] as String?) ?? '',
     name: (json['name'] as String?) ?? '',
     items: items,
-    selectedTemplateId: (json['selectedTemplateId'] as String?) ?? 'minimal_green',
+    selectedTemplateId:
+        (json['selectedTemplateId'] as String?) ?? 'minimal_green',
     currencyCode: (json['currencyCode'] as String?) ?? 'TRY',
-    updatedAt: DateTime.fromMillisecondsSinceEpoch((json['updatedAtMs'] as num?)?.toInt() ?? 0),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(
+      (json['updatedAtMs'] as num?)?.toInt() ?? 0,
+    ),
   );
 }
 
